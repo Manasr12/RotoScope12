@@ -63,7 +63,9 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDR_MAINFRAME           ICON                    "res\\RotoScope.ico"
+
 IDR_RotoScopeTYPE       ICON                    "res\\RotoScopeDoc.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -71,6 +73,7 @@ IDR_RotoScopeTYPE       ICON                    "res\\RotoScopeDoc.ico"
 //
 
 IDR_MAINFRAME           BITMAP                  "res\\Toolbar.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -164,6 +167,10 @@ BEGIN
     POPUP "&Help"
     BEGIN
         MENUITEM "&About RotoScope...",         ID_APP_ABOUT
+    END
+    POPUP "Edit"
+    BEGIN
+        MENUITEM "Clear Frame",                 ID_EDIT_CLEARFRAME
     END
 END
 

@@ -39,6 +39,7 @@ BEGIN_MESSAGE_MAP(CRotoScopeDoc, CDocument)
     ON_COMMAND(ID_MOVIES_OPENBACKGROUNDAUDIO, &CRotoScopeDoc::OnMoviesOpenbackgroundaudio)
     ON_COMMAND(ID_MOVIES_CLOSEBACKGROUNDAUDIO, &CRotoScopeDoc::OnMoviesClosebackgroundaudio)
     ON_UPDATE_COMMAND_UI(ID_MOVIES_CLOSEBACKGROUNDAUDIO, &CRotoScopeDoc::OnUpdateMoviesClosebackgroundaudio)
+    ON_COMMAND(ID_EDIT_CLEARFRAME, &CRotoScopeDoc::OnEditClearframe)
 END_MESSAGE_MAP()
 
 
@@ -230,18 +231,9 @@ void CRotoScopeDoc::CreateOneFrame()
         // the data over.
 
         CGrImage image;
-        if(m_moviesource.ReadImage(image))
+        if (m_moviesource.ReadImage(m_initial))
         {
-            // Write this into m_image
-            for(int r=0;  r<m_image.GetHeight() && r<image.GetHeight();  r++)
-            {
-                for(int c=0;  c<m_image.GetWidth() && c<image.GetWidth();  c++)
-                {
-                    m_image[r][c*3] = image[r][c*3];
-                    m_image[r][c*3+1] = image[r][c*3+1];
-                    m_image[r][c*3+2] = image[r][c*3+2];
-                }
-            }
+            DrawImage();
         }
     }
 
@@ -401,6 +393,7 @@ void CRotoScopeDoc::Mouse(int p_x, int p_y)
     // We need to convert screen locations to image locations
     int x = p_x;                            // No problem there.
     int y = m_image.GetHeight() - p_y - 1;     // Just invert it.
+
     // Ensure there is an entry for every frame up till this one...
     std::list<CPoint> empty;
     while ((int)m_draw.size() < m_movieframe + 1)
@@ -409,11 +402,7 @@ void CRotoScopeDoc::Mouse(int p_x, int p_y)
     // Add the mouse point to the list for the frame
     m_draw[m_movieframe].push_back(CPoint(x, y));
 
-    m_image.Set(x, y, 255, 0, 0);       // Note:  Set does error checking on x,y for us.
-    m_image.Set(x+1, y, 255, 0, 0);       // Note:  Set does error checking on x,y for us.
-    m_image.Set(x+1, y+1, 255, 0, 0);       // Note:  Set does error checking on x,y for us.
-    m_image.Set(x, y+1, 255, 0, 0);       // Note:  Set does error checking on x,y for us.
-    UpdateAllViews(NULL);
+    DrawImage();
 }
 
 
@@ -574,9 +563,176 @@ BOOL CRotoScopeDoc::OnOpenDocument(LPCTSTR lpszPathName)
 
         if (nodeName == L"movie")
         {
+            XmlLoadMovie(node);
         }
     }
 
 
     return TRUE;
+}
+void CRotoScopeDoc::XmlLoadMovie(IXMLDOMNode* xml)
+{
+    // Handle the children of a <movie> tag
+    CComPtr<IXMLDOMNode> node;
+    xml->get_firstChild(&node);
+    for (; node != NULL; NextNode(node))
+    {
+        // Get the name of the node
+        CComBSTR nodeName;
+        node->get_nodeName(&nodeName);
+
+        if (nodeName == L"frame")
+        {
+            XmlLoadFrame(node);
+        }
+    }
+}
+void CRotoScopeDoc::XmlLoadFrame(IXMLDOMNode* xml)
+{
+    // When this function is called we have a new <frame> tag.
+    // We assume we don't skip any tag numbers.
+    // Push on an empty frame
+    list<CPoint> empty;
+    m_draw.push_back(empty);
+
+    // Traverse the children of the <frame> tag
+    CComPtr<IXMLDOMNode> node;
+    xml->get_firstChild(&node);
+    for (; node != NULL; NextNode(node))
+    {
+        // Get the name of the node
+        CComBSTR nodeName;
+        node->get_nodeName(&nodeName);
+
+        // Handle finding a nested <point> tag
+        if (nodeName == L"point")
+        {
+            CPoint point;
+
+            // Get a list of all attribute nodes and the
+            // length of that list
+            CComPtr<IXMLDOMNamedNodeMap> attributes;
+            node->get_attributes(&attributes);
+            long len;
+            attributes->get_length(&len);
+
+            // Loop over the list of attributes
+            for (int i = 0; i < len; i++)
+            {
+                // Get attribute i
+                CComPtr<IXMLDOMNode> attrib;
+                attributes->get_item(i, &attrib);
+
+                // Get the name of the attribute
+                CComBSTR name;
+                attrib->get_nodeName(&name);
+
+                // Get the value of the attribute.  A CComVariant is a variable
+                // that can have any type. It loads the attribute value as a
+                // string (UNICODE), but we can then change it to an integer 
+                // (VT_I4) or double (VT_R8) using the ChangeType function 
+                // and then read its integer or double value from a member variable.
+                CComVariant value;
+                attrib->get_nodeValue(&value);
+
+                if (name == "x")
+                {
+                    value.ChangeType(VT_I4);
+                    point.x = value.intVal;
+                }
+                else if (name == "y")
+                {
+                    value.ChangeType(VT_I4);
+                    point.y = value.intVal;
+                }
+            }
+
+            // When we've pulled the x,y values from the
+            // tag, push it onto the end of our list of 
+            // points.
+            m_draw.back().push_back(point);
+        }
+    }
+}
+
+void CRotoScopeDoc::OnEditClearframe()
+{
+
+    if (m_movieframe >= 0 &&
+        m_movieframe < int(m_draw.size()))
+        m_draw[m_movieframe].clear();
+
+    DrawImage();
+    // TODO: Add your command handler code here
+}
+void CRotoScopeDoc::DrawImage()
+{
+    // Write image from m_initial into the current image
+    for (int r = 0; r < m_image.GetHeight() && r < m_initial.GetHeight(); r++)
+    {
+        for (int c = 0; c < m_image.GetWidth() && c < m_initial.GetWidth(); c++)
+        {
+            m_image[r][c * 3] = m_initial[r][c * 3];
+            m_image[r][c * 3 + 1] = m_initial[r][c * 3 + 1];
+            m_image[r][c * 3 + 2] = m_initial[r][c * 3 + 2];
+        }
+    }
+
+    // Write any saved drawings into the frame
+    if (m_movieframe < (int)m_draw.size())
+    {
+        for (list<CPoint>::iterator i = m_draw[m_movieframe].begin();
+            i != m_draw[m_movieframe].end();  i++)
+        {
+           m_image.Set(i->x, i->y, 255, 0, 0);
+        }
+    }
+    DrawLine(m_image, 10, 10, 100, 20);
+    DrawLine(m_image, 100, 20, 10, 30);
+    DrawLine(m_image, 10, 30, 20, 300);
+    DrawLine(m_image, 20, 300, 30, 30);
+
+
+    UpdateAllViews(NULL);
+}
+void CRotoScopeDoc::DrawLine(CGrImage& image, int x1, int y1, int x2, int y2)
+{
+    if (abs(x2 - x1) > abs(y2 - y1))
+    {
+        // Step in the X direction...
+        if (x1 > x2)
+        {
+            swap(x1, x2);
+            swap(y1, y2);
+        }// Step in the X direction...
+         // Step in the X direction...
+        if (x1 == x2)
+            image.Set(x1, y1, 0, 0, 255);
+        else
+        {
+            for (int x = x1; x <= x2; x++)
+            {
+                image.Set(x, y1 + (x - x1) * (y2 - y1) / (x2 - x1), 0, 0, 255);
+            }
+        }
+    }
+    else
+    {
+        if (y1 > y2)
+        {
+            swap(x1, x2);
+            swap(y1, y2);
+        }
+
+        if (y1 == y2)
+            image.Set(x1, y1, 255, 0, 0);
+        else
+        {
+            for (int y = y1; y <= y2; y++)
+            {
+                image.Set(x1 + (y - y1) * (x2 - x1) / (y2 - y1), y, 255, 0, 0);
+                image.Set(x1 + (y - y1) * (x2 - x1) / (y2 - y1) + 1, y + 1, 255, 0, 0);
+            }
+        }// Step in the Y direction...
+    }
 }

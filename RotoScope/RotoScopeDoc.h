@@ -80,10 +80,16 @@ private:
     afx_msg void OnMoviesOpenbackgroundaudio();
     afx_msg void OnMoviesClosebackgroundaudio();
     afx_msg void OnUpdateMoviesClosebackgroundaudio(CCmdUI *pCmdUI);
+    CGrImage m_initial;
 public:
     virtual BOOL OnSaveDocument(LPCTSTR lpszPathName);
     void SaveMovieData(IXMLDOMDocument* xmlDoc, IXMLDOMNode* inNode);
     virtual BOOL OnOpenDocument(LPCTSTR lpszPathName);
+    void XmlLoadMovie(IXMLDOMNode* xml);
+    void XmlLoadFrame(IXMLDOMNode* xml);
+    afx_msg void OnEditClearframe();
+    void DrawImage();
+    void DrawLine(CGrImage& image, int x1, int y1, int x2, int y2);
 };
 
 
