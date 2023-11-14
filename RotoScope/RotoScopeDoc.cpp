@@ -7,6 +7,10 @@
 
 #include "RotoScopeDoc.h"
 #include  "xmlhelp..h"
+#include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -52,6 +56,7 @@ CRotoScopeDoc::CRotoScopeDoc()
 	m_image.SetSize(640, 480);
     m_image.Fill(0, 0, 0);
     m_movieframe = 0;
+    m_val = 0;
     
 }
 
@@ -458,6 +463,7 @@ BOOL CRotoScopeDoc::OnSaveDocument(LPCTSTR lpszPathName)
     // This creates the line:  <?xml version='1.0'>
     CComPtr<IXMLDOMProcessingInstruction> pi;
     xmlDoc->createProcessingInstruction(L"xml", L"version='1.0'", &pi);
+    
     xmlDoc->appendChild(pi, &node);
     pi.Release();
     node.Release();
@@ -665,8 +671,89 @@ void CRotoScopeDoc::OnEditClearframe()
     DrawImage();
     // TODO: Add your command handler code here
 }
-void CRotoScopeDoc::DrawImage()
+
+void CRotoScopeDoc::DrawLine(CGrImage& image, int x1, int y1, int x2, int y2)
 {
+    // 1 pixil light saber
+    //int dx = abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
+    //int dy = -abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
+    //int err = dx + dy, e2; /* error value e_xy */
+
+    //while (true) {
+        //image.Set(x1, y1, 0, 0, 0); // Set the pixel at (x1,y1)
+
+        //if (x1 == x2 && y1 == y2) break;
+        //e2 = 2 * err;
+        //if (e2 >= dy) { err += dy; x1 += sx; } /* e_xy+e_x > 0 */
+        //if (e2 <= dx) { err += dx; y1 += sy; } /* e_xy+e_y < 0 */
+    //}
+    // biger light saber video 2
+    //int dx = abs(x2 - x1), sx = x1 < x2 ? 1 : -1;
+    //int dy = -abs(y2 - y1), sy = y1 < y2 ? 1 : -1;
+    //int err = dx + dy, e2;
+
+   // while (true) {
+        // Set the central pixel
+        //image.Set(x1, y1, 0, 255, 0); // Green color
+
+        // Set the pixels to thicken the line
+        //if (dx > dy) {
+            // Line is more horizontal, thicken vertically
+            //if (y1 + 1 < image.GetHeight()) image.Set(x1, y1 + 1, 0, 255, 0);
+            //if (y1 - 1 >= 0) image.Set(x1, y1 - 1, 0, 255, 0);
+        //}
+        //else {
+            // Line is more vertical, thicken horizontally
+            //if (x1 + 1 < image.GetWidth()) image.Set(x1 + 1, y1, 0, 255, 0);
+            //if (x1 - 1 >= 0) image.Set(x1 - 1, y1, 0, 255, 0);
+        //}
+
+        //if (x1 == x2 && y1 == y2) break;
+        //e2 = 2 * err;
+        //if (e2 >= dy) { err += dy; x1 += sx; }
+        //if (e2 <= dx) { err += dx; y1 += sy; }
+    //}
+    // Calculate the rotation angle in radians
+    double rotationAngle = (12 * m_val++ * M_PI) / 180; // M_PI is the constant for PI
+
+    // Temporary image for rotation
+    CGrImage tempImage;
+    tempImage.SetSize(m_image.GetWidth(), m_image.GetHeight());
+    tempImage.Fill(0, 0, 0); // Fill with black
+
+    int centerX = m_image.GetWidth() / 2;
+    int centerY = m_image.GetHeight() / 2;
+
+    // Iterate through each pixel for rotation
+    for (int y = 0; y < m_image.GetHeight(); ++y)
+    {
+        for (int x = 0; x < m_image.GetWidth(); ++x)
+        {
+            // Calculating the new coordinates after rotation
+            int newX = static_cast<int>((x - centerX) * cos(rotationAngle) - (y - centerY) * sin(rotationAngle) + centerX);
+            int newY = static_cast<int>((x - centerX) * sin(rotationAngle) + (y - centerY) * cos(rotationAngle) + centerY);
+
+            // Check bounds and copy pixel
+            if (newX >= 0 && newX < m_image.GetWidth() && newY >= 0 && newY < m_image.GetHeight())
+            {
+                for (int k = 0; k < 3; ++k) // Assuming RGB
+                {
+                    tempImage[y][x * 3 + k] = m_image[newY][newX * 3 + k];
+                }
+            }
+        }
+    }
+
+    // Update the main image
+    m_image = tempImage;
+
+    // Update all views
+    UpdateAllViews(NULL);
+
+}
+ //this is for the lightsaber stuff
+void CRotoScopeDoc::DrawImage()
+{// Write image from m_initial into the current image
     // Write image from m_initial into the current image
     for (int r = 0; r < m_image.GetHeight() && r < m_initial.GetHeight(); r++)
     {
@@ -678,61 +765,25 @@ void CRotoScopeDoc::DrawImage()
         }
     }
 
-    // Write any saved drawings into the frame
+    // Draw lines after updating the image from initial
     if (m_movieframe < (int)m_draw.size())
     {
-        for (list<CPoint>::iterator i = m_draw[m_movieframe].begin();
-            i != m_draw[m_movieframe].end();  i++)
+        list<CPoint>::iterator current = m_draw[m_movieframe].begin();
+        list<CPoint>::iterator next = current;
+        if (next != m_draw[m_movieframe].end()) {
+            ++next;
+        }
+
+        // Draw line between each pair of points
+        while (next != m_draw[m_movieframe].end())
         {
-           m_image.Set(i->x, i->y, 255, 0, 0);
+            DrawLine(m_image, current->x, current->y, next->x, next->y);
+
+            // Move to the next pair of points
+            current = next;
+            ++next;
         }
     }
-    DrawLine(m_image, 10, 10, 100, 20);
-    DrawLine(m_image, 100, 20, 10, 30);
-    DrawLine(m_image, 10, 30, 20, 300);
-    DrawLine(m_image, 20, 300, 30, 30);
-
 
     UpdateAllViews(NULL);
-}
-void CRotoScopeDoc::DrawLine(CGrImage& image, int x1, int y1, int x2, int y2)
-{
-    if (abs(x2 - x1) > abs(y2 - y1))
-    {
-        // Step in the X direction...
-        if (x1 > x2)
-        {
-            swap(x1, x2);
-            swap(y1, y2);
-        }// Step in the X direction...
-         // Step in the X direction...
-        if (x1 == x2)
-            image.Set(x1, y1, 0, 0, 255);
-        else
-        {
-            for (int x = x1; x <= x2; x++)
-            {
-                image.Set(x, y1 + (x - x1) * (y2 - y1) / (x2 - x1), 0, 0, 255);
-            }
-        }
-    }
-    else
-    {
-        if (y1 > y2)
-        {
-            swap(x1, x2);
-            swap(y1, y2);
-        }
-
-        if (y1 == y2)
-            image.Set(x1, y1, 255, 0, 0);
-        else
-        {
-            for (int y = y1; y <= y2; y++)
-            {
-                image.Set(x1 + (y - y1) * (x2 - x1) / (y2 - y1), y, 255, 0, 0);
-                image.Set(x1 + (y - y1) * (x2 - x1) / (y2 - y1) + 1, y + 1, 255, 0, 0);
-            }
-        }// Step in the Y direction...
-    }
 }

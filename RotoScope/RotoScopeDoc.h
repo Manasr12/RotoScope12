@@ -81,6 +81,12 @@ private:
     afx_msg void OnMoviesClosebackgroundaudio();
     afx_msg void OnUpdateMoviesClosebackgroundaudio(CCmdUI *pCmdUI);
     CGrImage m_initial;
+    // New variables
+    bool m_isStartPoint;
+    CPoint m_startPoint;
+    CPoint m_endPoint;
+    int m_val;
+    
 public:
     virtual BOOL OnSaveDocument(LPCTSTR lpszPathName);
     void SaveMovieData(IXMLDOMDocument* xmlDoc, IXMLDOMNode* inNode);
@@ -90,6 +96,7 @@ public:
     afx_msg void OnEditClearframe();
     void DrawImage();
     void DrawLine(CGrImage& image, int x1, int y1, int x2, int y2);
+    void DrawCustomLine(CGrImage& image, int x1, int y1, int x2, int y2, COLORREF color, int width);
 };
 
 
